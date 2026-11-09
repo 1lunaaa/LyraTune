@@ -48,7 +48,7 @@ public:
     lyra::TelemetryQueue telemetry;            // audio -> editor, single consumer
 
     // Display preferences: not parameters (not automatable, not part of A/B), saved with the project.
-    struct UiSettings { bool heatmaps = true, detectedNotes = true, tooltips = true; float scale = 1.0f; } ui;
+    struct UiSettings { bool heatmaps = true, detectedNotes = true, tooltips = true; float scale = 0.7f; } ui;
 
 private:
     void process (juce::AudioBuffer<float>&, bool forceBypass) noexcept;

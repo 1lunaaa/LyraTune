@@ -27,7 +27,14 @@ juce_add_plugin(LyraTune
 
 juce_add_binary_data(LyraTuneAssets SOURCES
     Resources/fonts/Inter-Regular.ttf
-    Resources/fonts/Inter-SemiBold.ttf)
+    Resources/fonts/Inter-SemiBold.ttf
+    Resources/ui/ui_base.png
+    Resources/ui/ui_scale_off.png
+    Resources/ui/ui_scale_on.png
+    Resources/ui/ui_keys_off.png
+    Resources/ui/ui_keys_on.png
+    Resources/ui/ui_sparkle_off.png
+    Resources/ui/ui_sparkle_on.png)
 
 target_sources(LyraTune PRIVATE
     Source/PluginProcessor.cpp

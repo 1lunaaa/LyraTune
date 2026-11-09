@@ -188,7 +188,7 @@ void LyraTuneProcessor::setStateInformation (const void* data, int size)
         ui.heatmaps = u->getBoolAttribute ("heatmaps", true);
         ui.detectedNotes = u->getBoolAttribute ("detected", true);
         ui.tooltips = u->getBoolAttribute ("tooltips", true);
-        ui.scale = juce::jlimit (0.75f, 1.5f, float (u->getDoubleAttribute ("scale", 1.0)));
+        ui.scale = juce::jlimit (0.4f, 1.0f, float (u->getDoubleAttribute ("scale", 0.7)));
     }
 }
 

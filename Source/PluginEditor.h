@@ -1,82 +1,62 @@
 #pragma once
 #include "PluginProcessor.h"
-#include "UI/KeyboardPanel.h"
-#include "UI/Knob.h"
-#include "UI/LyraLookAndFeel.h"
-#include "UI/Orb.h"
-#include "UI/Widgets.h"
+#include "UI/DesignLayout.h"
 
-// Fixed 900x600 design canvas; the editor scales it uniformly (75-150 %) so the layout is designed
-// once, never squeezed. All visual data comes from the processor's telemetry queue.
-class LyraTuneEditor : public juce::AudioProcessorEditor, private juce::Timer
+// Luna's own interface: a flat 980 x 980 picture with a Major/Minor switch, one octave of keys
+// (pick the key of the song) and the sparkles (plugin on / off). Everything is drawn from PNG
+// sprites (Resources/ui), so the look can be changed by swapping the pictures.
+//
+// - Click a key            -> sets the key (root note). From chromatic it also switches to Major.
+// - Click Major / Minor    -> sets the scale. Clicking the selected one again = chromatic (all notes).
+// - Click the sparkles     -> plugin on (filled) / off (outline).
+// - Double-click the picture, or right-click anywhere -> change the picture (stored on this computer).
+class LyraTuneEditor : public juce::AudioProcessorEditor, public juce::TooltipClient, private juce::Timer
 {
 public:
-    static constexpr int kW = 900, kH = 600;
+    static constexpr int kSize = design::kSize;
 
     explicit LyraTuneEditor (LyraTuneProcessor&);
     ~LyraTuneEditor() override;
+
+    void paint (juce::Graphics&) override;
     void resized() override;
-    void paint (juce::Graphics& g) override { g.fillAll (theme::bg1); }
+    void mouseMove (const juce::MouseEvent&) override;
+    void mouseExit (const juce::MouseEvent&) override;
+    void mouseDown (const juce::MouseEvent&) override;
+    void mouseDoubleClick (const juce::MouseEvent&) override;
+    juce::String getTooltip() override;
 
 private:
-    struct Canvas : public juce::Component
+    struct Hit
     {
-        explicit Canvas (LyraTuneEditor& e) : owner (e) {}
-        void paint (juce::Graphics&) override;
-        // Open on mouse-up: opening on mouse-down let the same click's mouse-up dismiss the menu.
-        void mouseUp (const juce::MouseEvent& e) override
-        {
-            if (owner.rootArea.contains (e.getPosition()) && owner.rootArea.contains (e.getMouseDownPosition()))
-                owner.toggleRootMenu();
-        }
-        LyraTuneEditor& owner;
+        enum Kind { none, scale, key, power } kind = none;
+        int index = 0; // scale: 0 Major / 1 Minor; key: pitch class 0..11
+        bool operator== (const Hit& o) const noexcept { return kind == o.kind && index == o.index; }
     };
 
     void timerCallback() override;
-    void layout();
-    void toggleNote (int pc);
-    void setRoot (int pc);
+    Hit hitAt (juce::Point<float> canvasPos) const;
+    juce::Point<float> toCanvas (juce::Point<int> p) const;
     void setParam (const juce::String& id, float value);
-    void toggleRootMenu(); // click root area: open; click it again: close
-    void showRootMenu();
-    void showMainMenu();
-    void setScale (float s);
-    void updateTooltips();
+    int currentScale() const;
+    int currentRoot() const;
+    bool isActive() const; // not bypassed
+    void showImageMenu();
+    void chooseImage();
+    void useImageFile (const juce::File&);
+    void resetImage();
+    int stateKey() const;
 
     LyraTuneProcessor& proc;
     juce::AudioProcessorValueTreeState& state;
-    LyraLookAndFeel lnf;
-    Canvas canvas { *this };
 
-    Knob speedKnob, amountKnob, sustainKnob;
-    ValueStrip refStrip, widthStrip, blendStrip, strikeStrip, strikeLenStrip;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> speedAttach, amountAttach, sustainAttach, refAttach, widthAttach, blendAttach, strikeAmountAttach, strikeLengthAttach;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttach, doublerAttach, strikeAttach;
-    Orb orb;
-    KeyboardPanel keyboard;
-    SegmentedControl scaleSeg, stabilizerSeg, rangeSeg;
+    juce::Image baseImage, customImage;
+    juce::Image scaleOff, scaleOn, keysOff, keysOn, sparkleOff, sparkleOn;
 
-    IconButton menuButton { "menu", icons::menu() };
-    IconButton undoButton { "undo", icons::undo() }, redoButton { "redo", icons::redo() }, resetButton { "reset", icons::reset() };
-    PillButton aButton { "A" }, bButton { "B" };
-    IconButton copyButton { "copy", icons::copyArrow() };
-    IconButton helpButton { "tips", icons::help() };
-    IconButton heatButton { "heat", icons::eye(), "In/Out HeatMaps" };
-    IconButton detectedButton { "detected", icons::notes(), "Detected Notes" };
-    IconButton bypassButton { "bypass", icons::power(), "Global Bypass" };
-    IconButton doublerButton { "doubler", icons::power(), "Doubler" };
-    IconButton strikeButton { "strike", icons::bolt(), "LyraStrike" };
-    juce::HyperlinkButton credit { "made with <3 by stack", juce::URL ("https://soundcloud.com/222stack") };
-    juce::Rectangle<int> rootArea;
-    bool rootMenuOpen = false;
-    double rootMenuClosedByAreaClickMs = -1e9; // a click on the root area that dismissed the menu
+    Hit hover;
+    int lastStateKey = -1;
+    std::unique_ptr<juce::FileChooser> chooser;
     std::unique_ptr<juce::TooltipWindow> tooltipWindow;
-
-    DisplayState display;
-    double lastVoicedMs = -1e9;
-    float latestRms = 0;
-    juce::String latencyText;
-    bool lastDoublerOn = false, lastStrikeOn = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LyraTuneEditor)
 };
