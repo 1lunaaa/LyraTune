@@ -6,23 +6,6 @@ namespace
 {
 constexpr float kHoverAlpha = 0.35f;
 constexpr int kMaxCustomSide = 1400; // custom pictures are shrunk to this (keeps the saved copy small)
-constexpr float kSlowestMs = 400.0f; // empty sparkles
-constexpr float kSparkleMargin = 4.0f; // transparent padding inside the sparkle sprite (see slice_design.py)
-
-// Fill 1 -> 0 ms, fill 0 -> kSlowestMs. Squared so the busy fast end (0-60 ms) gets most of the travel.
-float speedFromLevel (float level)
-{
-    level = juce::jlimit (0.0f, 1.0f, level);
-    if (level >= 0.98f)
-        return 0.0f; // the top of the meter is exactly 0 ms
-    const float k = 1.0f - level;
-    return kSlowestMs * k * k;
-}
-
-float levelFromSpeed (float ms)
-{
-    return 1.0f - std::sqrt (juce::jlimit (0.0f, kSlowestMs, ms) / kSlowestMs);
-}
 
 juce::Rectangle<int> toRect (const design::Box& b) { return { b.x, b.y, b.w, b.h }; }
 
@@ -63,11 +46,6 @@ LyraTuneEditor::LyraTuneEditor (LyraTuneProcessor& p)
     getConstrainer()->setFixedAspectRatio (1.0);
     setResizeLimits (kSize * 2 / 5, kSize * 2 / 5, kSize, kSize);
     setSize (juce::roundToInt (kSize * initialScale), juce::roundToInt (kSize * initialScale));
-
-    // There is no on/off switch in this interface any more; make sure an old project can't be stuck bypassed.
-    if (state.getRawParameterValue (ParamID::bypass)->load() > 0.5f)
-        setParam (ParamID::bypass, 0.0f);
-
     startTimerHz (20);
 }
 
@@ -81,30 +59,9 @@ LyraTuneEditor::~LyraTuneEditor()
 
 int LyraTuneEditor::currentScale() const { return juce::jlimit (0, 3, int (state.getRawParameterValue (ParamID::scale)->load())); }
 int LyraTuneEditor::currentRoot() const { return juce::jlimit (0, 11, int (state.getRawParameterValue (ParamID::root)->load())); }
-float LyraTuneEditor::speedMs() const { return state.getRawParameterValue (ParamID::speed)->load(); }
-float LyraTuneEditor::level() const { return levelFromSpeed (speedMs()); }
+bool LyraTuneEditor::isActive() const { return state.getRawParameterValue (ParamID::bypass)->load() < 0.5f; }
 
-int LyraTuneEditor::stateKey() const
-{
-    const int ms10 = juce::jlimit (0, 4000, juce::roundToInt (speedMs() * 10.0f));
-    return ((currentRoot() * 4 + currentScale()) * 5000) + ms10;
-}
-
-float LyraTuneEditor::levelAtCanvasY (float y) const
-{
-    const auto& sp = design::sparkleSprite;
-    const float top = float (sp.y) + kSparkleMargin, bottom = float (sp.y + sp.h) - kSparkleMargin;
-    return juce::jlimit (0.0f, 1.0f, (bottom - y) / (bottom - top));
-}
-
-void LyraTuneEditor::setLevel (float level01)
-{
-    const float ms = speedFromLevel (level01);
-    if (draggedParam != nullptr)
-        draggedParam->setValueNotifyingHost (draggedParam->convertTo0to1 (ms));
-    else
-        setParam (ParamID::speed, ms);
-}
+int LyraTuneEditor::stateKey() const { return (currentRoot() << 8) | (currentScale() << 4) | (isActive() ? 1 : 0); }
 
 void LyraTuneEditor::setParam (const juce::String& id, float value)
 {
@@ -161,7 +118,7 @@ LyraTuneEditor::Hit LyraTuneEditor::hitAt (juce::Point<float> p) const
                 const int px = x + dx, py = y + dy;
                 if (px >= 0 && py >= 0 && px < sparkleOn.getWidth() && py < sparkleOn.getHeight()
                     && sparkleOn.getPixelAt (px, py).getAlpha() > 100)
-                    return { Hit::level, 0 };
+                    return { Hit::power, 0 };
             }
     }
     return {};
@@ -220,19 +177,18 @@ void LyraTuneEditor::paint (juce::Graphics& g)
             paintCell (keysOn, design::keysSprite, design::keyCell[pc], kHoverAlpha);
     }
 
-    // Sparkles: outline always, and the filled version rises from the bottom as the speed gets faster.
+    // Sparkles: filled = on, outline = off.
+    if (isActive())
     {
-        const auto& sp = design::sparkleSprite;
-        g.drawImageAt (sparkleOff, sp.x, sp.y);
-
-        const float fillTop = float (sp.y + sp.h) - kSparkleMargin - level() * (float (sp.h) - 2.0f * kSparkleMargin);
-        if (level() > 0.0f)
+        g.drawImageAt (sparkleOn, design::sparkleSprite.x, design::sparkleSprite.y);
+    }
+    else
+    {
+        g.drawImageAt (sparkleOff, design::sparkleSprite.x, design::sparkleSprite.y);
+        if (hover.kind == Hit::power)
         {
-            juce::Graphics::ScopedSaveState ss (g);
-            juce::Path p;
-            p.addRectangle (float (sp.x), fillTop, float (sp.w), float (sp.y + sp.h) - fillTop);
-            g.reduceClipRegion (p, {});
-            g.drawImageAt (sparkleOn, sp.x, sp.y);
+            g.setOpacity (kHoverAlpha);
+            g.drawImageAt (sparkleOn, design::sparkleSprite.x, design::sparkleSprite.y);
         }
     }
 }
@@ -282,14 +238,8 @@ void LyraTuneEditor::mouseDown (const juce::MouseEvent& e)
                 setParam (ParamID::scale, float (lyra::ScaleType::Major));
             break;
         }
-        case Hit::level:
-            // The sparkles are a vertical meter: the height of the mouse is the level. Keep dragging to adjust.
-            draggedParam = state.getParameter (ParamID::speed);
-            if (draggedParam != nullptr)
-            {
-                draggedParam->beginChangeGesture();
-                setLevel (levelAtCanvasY (toCanvas (e.getPosition()).y));
-            }
+        case Hit::power:
+            setParam (ParamID::bypass, isActive() ? 1.0f : 0.0f);
             break;
         case Hit::none:
             break;
@@ -298,41 +248,10 @@ void LyraTuneEditor::mouseDown (const juce::MouseEvent& e)
     repaint();
 }
 
-void LyraTuneEditor::mouseDrag (const juce::MouseEvent& e)
-{
-    if (draggedParam == nullptr)
-        return;
-    setLevel (levelAtCanvasY (toCanvas (e.getPosition()).y));
-    lastStateKey = -1;
-    repaint();
-}
-
-void LyraTuneEditor::mouseUp (const juce::MouseEvent&)
-{
-    if (draggedParam != nullptr)
-    {
-        draggedParam->endChangeGesture();
-        draggedParam = nullptr;
-    }
-}
-
 void LyraTuneEditor::mouseDoubleClick (const juce::MouseEvent& e)
 {
-    switch (hitAt (toCanvas (e.getPosition())).kind)
-    {
-        case Hit::none: chooseImage(); break;
-        case Hit::level: setParam (ParamID::speed, 0.0f); break; // back to full = 0 ms
-        default: break;
-    }
-}
-
-void LyraTuneEditor::mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails& wheel)
-{
-    if (hover.kind != Hit::level || draggedParam != nullptr)
-        return;
-    setLevel (level() + wheel.deltaY * 0.15f);
-    lastStateKey = -1;
-    repaint();
+    if (hitAt (toCanvas (e.getPosition())).kind == Hit::none)
+        chooseImage();
 }
 
 juce::String LyraTuneEditor::getTooltip()
@@ -344,12 +263,8 @@ juce::String LyraTuneEditor::getTooltip()
                                     : "Minor scale. Click again for chromatic (all notes).";
         case Hit::key:
             return "Key of the song: " + kNoteNames[hover.index];
-        case Hit::level:
-        {
-            const float ms = speedMs();
-            return "Retune speed: " + (ms < 0.05f ? juce::String ("0 ms (hard tune)") : juce::String (ms, ms < 10.0f ? 1 : 0) + " ms")
-                   + ". Drag up = faster, down = softer. Double-click = full.";
-        }
+        case Hit::power:
+            return isActive() ? "Autotune ON. Click to turn it off." : "Autotune OFF. Click to turn it on.";
         case Hit::none:
             break;
     }
