@@ -66,8 +66,8 @@ jobs:
       - name: Package
         run: |
           V=$(sed -n 's/^project(LyraTune VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
-          B="build/win-release/LyraTune_artefacts/Release/VST3/Lyra Tune.vst3"
-          file "$B/Contents/x86_64-win/Lyra Tune.vst3"
+          B="build/win-release/LyraTune_artefacts/Release/VST3/Miku Tune v2.0.vst3"
+          file "$B/Contents/x86_64-win/Miku Tune v2.0.vst3"
           P=pkg
           mkdir -p $P
           cp -R "$B" $P/
@@ -101,4 +101,4 @@ jobs:
             "https://github.com/Tracktion/pluginval/releases/download/$PLUGINVAL_VERSION/pluginval_Windows.zip"
           unzip -q pluginval.zip
           ./pluginval.exe --strictness-level 5 --validate-in-process --timeout-ms 600000 \
-            --validate "pkg/Lyra Tune.vst3"
+            --validate "pkg/Miku Tune v2.0.vst3"
