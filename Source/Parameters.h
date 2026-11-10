@@ -50,7 +50,7 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
     // -3..0 ms = aggressive mode (see CorrectionEngine); skewed so the musically busy 0-60 ms range gets most travel.
     NormalisableRange<float> speedRange (-3.0f, 400.0f, 0.1f);
     speedRange.setSkewForCentre (40.0f);
-    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamID::speed, v }, "Speed", speedRange, 20.0f,
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamID::speed, v }, "Speed", speedRange, 0.0f,
         AudioParameterFloatAttributes().withLabel ("ms").withStringFromValueFunction (
             [] (float x, int) { return String (x, x < 10.0f ? 1 : 0) + " ms"; })));
 
