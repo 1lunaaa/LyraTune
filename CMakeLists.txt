@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.22)
-project(LyraTune VERSION 0.6.7 LANGUAGES C CXX)
+project(LyraTune VERSION 2.0.0 LANGUAGES C CXX)
 
 # Product naming lives here only; DSP code never refers to it.
-set(PRODUCT_NAME "Lyra Tune" CACHE STRING "User-visible plugin name")
+set(PRODUCT_NAME "Miku Tune v2.0" CACHE STRING "User-visible plugin name")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,10 +13,10 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded)
 add_subdirectory(third_party/JUCE)
 
 juce_add_plugin(LyraTune
-    COMPANY_NAME "stack"
-    BUNDLE_ID com.stack.lyratune
+    COMPANY_NAME "Luna (mod of LyraTune by stack)"
+    BUNDLE_ID com.luna.mikutune
     PLUGIN_MANUFACTURER_CODE Lyra
-    PLUGIN_CODE LyTn
+    PLUGIN_CODE Mkt2
     PRODUCT_NAME "${PRODUCT_NAME}"
     FORMATS VST3 AU          # AU is built on macOS only; JUCE skips it elsewhere
     IS_SYNTH FALSE

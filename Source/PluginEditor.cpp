@@ -390,7 +390,7 @@ void LyraTuneEditor::useImageFile (const juce::File& f)
     auto img = juce::ImageFileFormat::loadFrom (f);
     if (! img.isValid())
     {
-        juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Lyra Tune", "That picture could not be opened.");
+        juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Miku Tune", "That picture could not be opened.");
         return;
     }
 
